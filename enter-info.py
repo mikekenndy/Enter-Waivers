@@ -7,28 +7,20 @@ from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 
 def zenLogin():
-    print('Email: ', end='')
-    email = input()
-    print('Password: ', end='')
-    password = input()
-    print('\nLogging in...')
+    dashboard = 'https://studio.zenplanner.com/zenplanner/studio/index.html#/main/iframe/zenplanner/studio/welcome/my-dashboard.cfm'
 
-    browser = webdriver.Firefox()
-    browser.get('https://studio.zenplanner.com/zenplanner/studio/index.html#/login')
+    try:
+        browser = webdriver.Firefox()
+        browser.get('https://studio.zenplanner.com/zenplanner/studio/index.html#/login')
+    except Exception as ex:
+        print('error: ' + str(ex))
+        before = input()
 
-    # Enter email address
-    emailElem = browser.find_element_by_name('email')
-    emailElem.send_keys(email)
+    # Wait for login
+    print('Log into ZenPlanner\n')
+    while browser.current_url != dashboard:
+        None
 
-    # Enter password
-    pwdElem = browser.find_element_by_id('idPassword')
-    pwdElem.send_keys(password)
-
-    # Log in
-    loginElem = browser.find_element_by_id('idSignIn')
-    loginElem.click()
-
-    waitForPage(browser, 'https://studio.zenplanner.com/zenplanner/studio/index.html#/main/iframe/zenplanner/studio/welcome/my-dashboard.cfm')
     return browser
 
 def addPerson(browser, person):
@@ -37,16 +29,19 @@ def addPerson(browser, person):
     browser.get('https://studio.zenplanner.com/zenplanner/studio/index.html#/main/iframe/zenplanner/studio/newPerson/profile.cfm?tt=1548699725827&tt=1548700656460')
     waitForPage(browser, 'https://studio.zenplanner.com/zenplanner/studio/index.html#/main/iframe/zenplanner/studio/newPerson/profile.cfm?tt=1548699725827&tt=1548700656460')
 
-    browser.switch_to.frame('idTheIframe')
-    # Enter name
-    browser.find_element_by_id('idFirstName').send_keys(person.get('firstName', 0))
-    browser.find_element_by_id('idLastName').send_keys(person.get('lastName', 0))
-    # Click next
-    browser.find_element_by_css_selector('input.btn:nth-child(6)').click()
-    # Enter email address
-    browser.find_element_by_id('idPersonEmailAddress').send_keys(person.get('email', 0))
-    # Save and Finish
-    browser.find_element_by_css_selector('input.btn:nth-child(6)').click()
+    try:
+        browser.switch_to.frame('idTheIframe')
+        # Enter name
+        browser.find_element_by_id('idFirstName').send_keys(person.get('firstName', 0))
+        browser.find_element_by_id('idLastName').send_keys(person.get('lastName', 0))
+        # Click next
+        browser.find_element_by_css_selector('input.btn:nth-child(6)').click()
+        # Enter email address
+        browser.find_element_by_id('idPersonEmailAddress').send_keys(person.get('email', 0))
+        # Save and Finish
+        browser.find_element_by_css_selector('input.btn:nth-child(6)').click()
+    except:
+        print('\nERROR ENCOUNTERED: program terminating.')
 
     # --- Sign waiver ---
     if person.get('docSigned', 0):
@@ -55,7 +50,6 @@ def addPerson(browser, person):
         browser.find_element_by_css_selector('.err').click()
         browser.find_element_by_css_selector('#idSignatureType_offline').click()
         browser.find_element_by_css_selector('#idSubmit').click()
-
     return None
 
 # Get excel document
@@ -80,7 +74,39 @@ def getPersonInfo(sheet):
         signed = False
 
     person = {'firstName': firstName, 'lastName': lastName, 'email': email, 'docSigned': signed}
+    print('Inputting ' + firstName + ' ' + lastName + ' - ' + email)
+
     return person
+
+def deleteRow(sheet):
+    try:
+        sheet.delete_rows(2)
+        return
+    except PermissionError:
+        print('---------------------------------')
+        print('-- ERROR: CLOSE EXCEL DOCUMENT --')
+        print('---------------------------------')
+        while(True):
+            try:
+                sheet.delete_rows(2)
+                return
+            except:
+                None
+
+def saveDoc(doc):
+    try:
+        doc.save('people.xlsx')
+        return
+    except:
+        print('---------------------------------')
+        print('-- ERROR: CLOSE EXCEL DOCUMENT --')
+        print('---------------------------------')
+        while(True):
+            try:
+                doc.save('people.xlsx')
+                return
+            except:
+                None
 
 # Waits for webpage to finish loading
 def waitForPage(browser, page):
@@ -90,18 +116,16 @@ def waitForPage(browser, page):
     return None
 
 # ------- Main code -------
+print('Running...\n')
 
 browser = zenLogin()
-# testPerson = {'firstName': 'Mike', 'lastName': 'Kennedy', 'email': 'email@gmail.com', 'docSigned': True}
-# Michelle = {'firstName': 'Shell', 'lastName': 'Bert', 'email': 'bertyxyxyx@gmail.com', 'docSigned': True}
-# addPerson(browser, testPerson)
-# addPerson(browser, Michelle)
 doc = getExcelDoc()
 sheet = doc.active
 doc.close()
 while(sheet['A2'].value != None):
     addPerson(browser, getPersonInfo(sheet))
-    sheet.delete_rows(2)
-doc.save('people.xlsx')
+    deleteRow(sheet)
+saveDoc(doc)
 
+browser.get('https://studio.zenplanner.com/zenplanner/studio/index.html#/main/iframe/zenplanner/studio/welcome/my-dashboard.cfm')
 print('Finished')
